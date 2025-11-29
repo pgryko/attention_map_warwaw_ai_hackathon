@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Leaflet map container */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* Custom severity marker colors */
+.marker-severity-1 {
+  background-color: #22c55e;
+}
+.marker-severity-2 {
+  background-color: #eab308;
+}
+.marker-severity-3 {
+  background-color: #f97316;
+}
+.marker-severity-4 {
+  background-color: #ef4444;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

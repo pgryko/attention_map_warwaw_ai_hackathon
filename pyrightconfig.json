@@ -1,8 +1,10 @@
 {
   "include": ["backend"],
-  "exclude": ["**/migrations", "**/__pycache__"],
+  "exclude": ["**/migrations", "**/__pycache__", "**/.venv", "**/node_modules"],
   "typeCheckingMode": "basic",
   "pythonVersion": "3.12",
   "reportMissingImports": true,
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "venvPath": "backend",
+  "venv": ".venv"
 }

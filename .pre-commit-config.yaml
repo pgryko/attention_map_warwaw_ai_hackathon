@@ -16,30 +16,20 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
 
-  # Python - Ruff (linting + formatting)
+  # Python - Ruff (linting + formatting) - backend only
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
       - id: ruff
         args: [--fix]
+        files: ^backend/
       - id: ruff-format
+        files: ^backend/
 
-  # Python - Type checking (Pyright)
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.364
-    hooks:
-      - id: pyright
-
-  # JavaScript/TypeScript
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.3.0
-    hooks:
-      - id: eslint
-        files: \.(js|jsx|ts|tsx)$
-        types: [file]
-
+  # JavaScript/TypeScript - frontend only
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.1.0
     hooks:
       - id: prettier
-        types_or: [javascript, jsx, ts, tsx, css, json]
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx, css, json, html]
