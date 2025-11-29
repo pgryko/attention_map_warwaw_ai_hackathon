@@ -69,10 +69,8 @@ WSGI_APPLICATION = "attention_map.wsgi.application"
 ASGI_APPLICATION = "attention_map.asgi.application"
 
 # Database - PostGIS
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgis://postgres:postgres@localhost:5432/attention_map",  # pragma: allowlist secret
-)
+_DB = "postgis://postgres:postgres@localhost:5432/attention_map"  # noqa: E501  # pragma: allowlist secret
+DATABASE_URL = os.getenv("DATABASE_URL", _DB)
 DATABASES = {
     "default": dj_database_url.parse(
         DATABASE_URL,
@@ -83,7 +81,8 @@ DATABASES = {
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": "django.contrib.auth.password_validation"
+        ".UserAttributeSimilarityValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",

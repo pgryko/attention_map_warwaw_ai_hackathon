@@ -67,6 +67,7 @@ class EventCluster(models.Model):
 
     class Meta:
         db_table = "event_cluster"
+        ordering = ["-computed_severity", "-last_event_at"]
         indexes = [
             gis_models.Index(fields=["centroid"], name="idx_cluster_centroid"),
             models.Index(fields=["-computed_severity"], name="idx_cluster_severity"),

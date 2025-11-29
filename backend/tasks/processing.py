@@ -188,7 +188,8 @@ Also assign severity (1-4):
 - 4 (Critical): Life-threatening emergency
 
 Respond in JSON format only:
-{{"category": "...", "subcategory": "...", "severity": N, "confidence": 0.0-1.0, "reasoning": "..."}}
+{{"category": "...", "subcategory": "...", "severity": N, "confidence": 0.0-1.0,
+"reasoning": "..."}}
 """
 
     try:

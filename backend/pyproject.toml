@@ -24,8 +24,31 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "factory-boy>=3.3.3",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
     "pyright>=1.1.407",
     "pytest>=9.0.1",
     "pytest-django>=4.11.1",
     "ruff>=0.14.7",
+    "pytest-xdist>=3.8.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "attention_map.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+addopts = "-v -n auto --tb=short"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["core", "api", "tasks", "services"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "PLC0415", # import-outside-toplevel
 ]

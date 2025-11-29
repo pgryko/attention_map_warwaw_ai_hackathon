@@ -3,6 +3,8 @@ API routes for Attention Map.
 """
 
 from datetime import datetime
+
+from django.utils import timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -10,7 +12,7 @@ from django.contrib.gis.geos import Point
 from django.db.models import Count
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
-from ninja import File, Query, Router
+from ninja import File, Form, Query, Router
 from ninja.files import UploadedFile
 
 from core.models import Event, EventCluster, StatusChoices
@@ -21,7 +23,6 @@ from .schemas import (
     EventListOut,
     EventOut,
     EventStatusUpdateIn,
-    EventUploadIn,
     EventUploadOut,
     StatsOut,
 )
@@ -82,7 +83,9 @@ def cluster_to_schema(cluster: EventCluster) -> ClusterOut:
 )
 def upload_event(
     request: HttpRequest,
-    data: EventUploadIn,
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    description: str = Form(""),
     media: UploadedFile = File(...),
 ) -> tuple[int, EventUploadOut | ErrorOut]:
     """
@@ -100,26 +103,27 @@ def upload_event(
         return 400, ErrorOut(detail="Media must be an image or video file")
 
     # Validate coordinates
-    if not (-90 <= data.latitude <= 90):
+    if not (-90 <= latitude <= 90):
         return 400, ErrorOut(detail="Latitude must be between -90 and 90")
-    if not (-180 <= data.longitude <= 180):
+    if not (-180 <= longitude <= 180):
         return 400, ErrorOut(detail="Longitude must be between -180 and 180")
 
     # Create event
     media_type = "video" if content_type.startswith("video/") else "image"
-    location = Point(data.longitude, data.latitude, srid=4326)
+    location = Point(longitude, latitude, srid=4326)
 
     event = Event.objects.create(
         reporter=request.user if request.user.is_authenticated else None,
         location=location,
-        description=data.description,
+        description=description,
         media_type=media_type,
         status=StatusChoices.NEW,
     )
 
-    # TODO: Trigger Celery task for async processing
-    # from tasks.processing import process_event
-    # process_event.delay(str(event.id), media.read())
+    # Trigger Celery task for async processing
+    from tasks.processing import process_event
+
+    process_event.delay(str(event.id), media.read())
 
     return 202, EventUploadOut(
         id=event.id,
@@ -237,12 +241,13 @@ def update_event_status(
 
     event.status = data.status
     event.reviewed_by = request.user if request.user.is_authenticated else None
-    event.reviewed_at = datetime.now()
+    event.reviewed_at = timezone.now()
     event.save()
 
-    # TODO: Trigger SSE notification
-    # from api.streaming import broadcast_event_update
-    # broadcast_event_update(event)
+    # Trigger SSE notification for status change
+    from api.streaming import broadcast_status_change
+
+    broadcast_status_change(event)
 
     return 200, event_to_schema(event)
 
