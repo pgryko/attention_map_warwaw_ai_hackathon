@@ -137,7 +137,9 @@ MINIO_USE_SSL = os.getenv("MINIO_USE_SSL", "false").lower() == "true"
 
 # OpenRouter Configuration (LLM for classification)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-haiku")
+OPENROUTER_MODEL = os.getenv(
+    "OPENROUTER_MODEL", "google/gemini-2.5-flash-lite-preview-09-2025"
+)
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Groq Configuration (optional, for Whisper transcription)
