@@ -1033,7 +1033,7 @@ services:
         condition: service_healthy
     environment:
       - DEBUG=1
-      - DATABASE_URL=postgis://postgres:postgres@db:5432/attention_map
+      - DATABASE_URL=postgis://postgres:postgres@db:5432/attention_map  # pragma: allowlist secret
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
@@ -1060,7 +1060,7 @@ services:
         condition: service_healthy
     environment:
       - DEBUG=1
-      - DATABASE_URL=postgis://postgres:postgres@db:5432/attention_map
+      - DATABASE_URL=postgis://postgres:postgres@db:5432/attention_map  # pragma: allowlist secret
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
