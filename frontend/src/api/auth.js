@@ -16,9 +16,11 @@ export async function register({ email, password }) {
  * Login and get JWT tokens.
  */
 export async function login({ email, password }) {
-  const data = await fetchApi("/auth/token/pair", {
+  // JWT endpoint uses username - derive from email if @ present
+  const username = email.includes("@") ? email.split("@")[0] : email;
+  const data = await fetchApi("/token/pair", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
     skipAuth: true,
   });
   setTokens(data.access, data.refresh);

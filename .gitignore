@@ -54,6 +54,11 @@ htmlcov/
 coverage.xml
 *.cover
 .pytest_cache/
+coverage/
+
+# Playwright
+playwright-report/
+test-results/
 
 # Docker
 *.log

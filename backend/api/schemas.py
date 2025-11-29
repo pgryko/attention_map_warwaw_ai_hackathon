@@ -118,9 +118,9 @@ class StatsOut(Schema):
 class RegisterIn(Schema):
     """Input schema for user registration."""
 
-    username: str
     email: str
     password: str
+    username: str | None = None  # Optional - derived from email if not provided
 
 
 class RegisterOut(Schema):

@@ -35,7 +35,7 @@ async function refreshAccessToken() {
     throw new Error("No refresh token available");
   }
 
-  const response = await fetch(`${API_BASE}/api/auth/token/refresh`, {
+  const response = await fetch(`${API_BASE}/api/v1/token/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh: refreshToken }),
@@ -55,7 +55,7 @@ async function refreshAccessToken() {
  * Fetch wrapper with auth and error handling.
  */
 export async function fetchApi(endpoint, options = {}) {
-  const url = `${API_BASE}/api${endpoint}`;
+  const url = `${API_BASE}/api/v1${endpoint}`;
   const { skipAuth = false, ...fetchOptions } = options;
 
   // Build headers
@@ -132,7 +132,7 @@ export async function uploadEvent(formData) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}/api/events/upload`, {
+  const response = await fetch(`${API_BASE}/api/v1/events/upload`, {
     method: "POST",
     headers,
     body: formData,
@@ -202,8 +202,8 @@ export async function getStats() {
 export function createEventStream(onEvent, onError) {
   const token = getAccessToken();
   const url = token
-    ? `${API_BASE}/api/events/stream?token=${token}`
-    : `${API_BASE}/api/events/stream`;
+    ? `${API_BASE}/api/v1/events/stream?token=${token}`
+    : `${API_BASE}/api/v1/events/stream`;
 
   const eventSource = new EventSource(url);
 

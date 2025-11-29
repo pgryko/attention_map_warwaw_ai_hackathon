@@ -66,22 +66,25 @@ def register(
 
     Creates a user and associated profile for gamification tracking.
     """
-    # Validate username
-    if len(data.username) < 3:
-        return 400, ErrorOut(detail="Username must be at least 3 characters")
+    # Validate email
+    if "@" not in data.email:
+        return 400, ErrorOut(detail="Invalid email address")
 
     # Validate password
     if len(data.password) < 8:
         return 400, ErrorOut(detail="Password must be at least 8 characters")
 
-    # Validate email
-    if "@" not in data.email:
-        return 400, ErrorOut(detail="Invalid email address")
+    # Derive username from email if not provided
+    username = data.username or data.email.split("@")[0]
+
+    # Validate username
+    if len(username) < 3:
+        return 400, ErrorOut(detail="Username must be at least 3 characters")
 
     try:
         # Create user
         user = User.objects.create_user(
-            username=data.username,
+            username=username,
             email=data.email,
             password=data.password,
         )
