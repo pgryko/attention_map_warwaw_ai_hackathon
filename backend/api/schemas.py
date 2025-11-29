@@ -46,6 +46,7 @@ class EventOut(Schema):
     media_url: str
     media_type: str
     thumbnail_url: str
+    transcription: str
 
     # AI Classification
     category: str
@@ -114,12 +115,30 @@ class StatsOut(Schema):
 # ─────────────────────────────────────────────────────────────
 
 
+class RegisterIn(Schema):
+    """Input schema for user registration."""
+
+    username: str
+    email: str
+    password: str
+
+
+class RegisterOut(Schema):
+    """Output schema for user registration."""
+
+    id: int
+    username: str
+    email: str
+    message: str = "Registration successful"
+
+
 class UserOut(Schema):
     """Output schema for user details."""
 
     id: int
     username: str
     email: str
+    is_staff: bool = False
 
 
 class UserProfileOut(Schema):
@@ -130,6 +149,71 @@ class UserProfileOut(Schema):
     reports_verified: int
     badges: list[str]
     reputation_score: int
+
+
+class ProfileUpdateIn(Schema):
+    """Input schema for profile update."""
+
+    email: str | None = None
+
+
+# ─────────────────────────────────────────────────────────────
+# Gamification Schemas
+# ─────────────────────────────────────────────────────────────
+
+
+class BadgeOut(Schema):
+    """Output schema for a badge."""
+
+    id: str
+    name: str
+    description: str
+    icon: str
+    category: str
+    threshold: int | None = None
+
+
+class BadgeProgressOut(Schema):
+    """Output schema for badge progress."""
+
+    id: str
+    name: str
+    threshold: int
+    progress: int
+    remaining: int
+
+
+class UserStatsOut(Schema):
+    """Output schema for detailed user statistics."""
+
+    reports_submitted: int
+    reports_verified: int
+    verification_rate: float
+    reputation_score: int
+    rank: int
+    badges: list[BadgeOut]
+    badge_count: int
+    next_report_badge: BadgeProgressOut | None = None
+    next_verified_badge: BadgeProgressOut | None = None
+
+
+class LeaderboardEntryOut(Schema):
+    """Output schema for a leaderboard entry."""
+
+    rank: int
+    user_id: int
+    username: str
+    reputation_score: int
+    reports_submitted: int
+    reports_verified: int
+    badge_count: int
+
+
+class LeaderboardOut(Schema):
+    """Output schema for the leaderboard."""
+
+    entries: list[LeaderboardEntryOut]
+    total_users: int
 
 
 # ─────────────────────────────────────────────────────────────

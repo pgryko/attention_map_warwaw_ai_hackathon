@@ -106,6 +106,12 @@ class Event(models.Model):
     )
     thumbnail_url = models.URLField(max_length=500, blank=True)
 
+    # Audio transcription (from video/audio files)
+    transcription = models.TextField(
+        blank=True,
+        help_text="AI-generated transcription of audio content",
+    )
+
     # AI Classification
     category = models.CharField(
         max_length=50,

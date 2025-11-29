@@ -454,14 +454,23 @@ class TestEventStatusUpdateEndpoint:
         with patch("api.streaming.broadcast_status_change") as mock_broadcast:
             yield mock_broadcast
 
+    @pytest.fixture
+    def operator_headers(self, db, operator_user: User):
+        """Return authorization headers for operator user."""
+        from ninja_jwt.tokens import AccessToken
+
+        token = AccessToken.for_user(operator_user)
+        return {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
     def test_update_status_to_verified(
-        self, db, django_client: Client, event: Event, mock_broadcast
+        self, db, django_client: Client, event: Event, mock_broadcast, operator_headers
     ):
         """Successfully update event status to verified."""
         response = django_client.patch(
             f"/api/v1/events/{event.id}/status",
             data=json.dumps({"status": "verified"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 200
@@ -475,13 +484,14 @@ class TestEventStatusUpdateEndpoint:
         mock_broadcast.assert_called_once()
 
     def test_update_status_to_resolved(
-        self, db, django_client: Client, event: Event, mock_broadcast
+        self, db, django_client: Client, event: Event, mock_broadcast, operator_headers
     ):
         """Successfully update event status to resolved."""
         response = django_client.patch(
             f"/api/v1/events/{event.id}/status",
             data=json.dumps({"status": "resolved"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 200
@@ -489,13 +499,14 @@ class TestEventStatusUpdateEndpoint:
         assert event.status == StatusChoices.RESOLVED
 
     def test_update_status_to_false_alarm(
-        self, db, django_client: Client, event: Event, mock_broadcast
+        self, db, django_client: Client, event: Event, mock_broadcast, operator_headers
     ):
         """Successfully update event status to false_alarm."""
         response = django_client.patch(
             f"/api/v1/events/{event.id}/status",
             data=json.dumps({"status": "false_alarm"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 200
@@ -503,7 +514,7 @@ class TestEventStatusUpdateEndpoint:
         assert event.status == StatusChoices.FALSE_ALARM
 
     def test_update_status_sets_reviewed_at(
-        self, db, django_client: Client, event: Event, mock_broadcast
+        self, db, django_client: Client, event: Event, mock_broadcast, operator_headers
     ):
         """Reviewed_at is set when status is updated."""
         before = timezone.now()
@@ -512,6 +523,7 @@ class TestEventStatusUpdateEndpoint:
             f"/api/v1/events/{event.id}/status",
             data=json.dumps({"status": "verified"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 200
@@ -526,21 +538,23 @@ class TestEventStatusUpdateEndpoint:
         event: Event,
         operator_user: User,
         mock_broadcast,
+        operator_headers,
     ):
         """Reviewed_by is set to the authenticated user."""
-        django_client.force_login(operator_user)
-
         response = django_client.patch(
             f"/api/v1/events/{event.id}/status",
             data=json.dumps({"status": "verified"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 200
         event.refresh_from_db()
         assert event.reviewed_by == operator_user
 
-    def test_update_status_not_found(self, db, django_client: Client, mock_broadcast):
+    def test_update_status_not_found(
+        self, db, django_client: Client, mock_broadcast, operator_headers
+    ):
         """Return 404 for non-existent event."""
         fake_id = uuid4()
 
@@ -548,6 +562,7 @@ class TestEventStatusUpdateEndpoint:
             f"/api/v1/events/{fake_id}/status",
             data=json.dumps({"status": "verified"}),
             content_type="application/json",
+            **operator_headers,
         )
 
         assert response.status_code == 404
@@ -955,3 +970,347 @@ class TestSSEStreaming:
         from api.streaming import EVENTS_CHANNEL
 
         assert EVENTS_CHANNEL == "events:updates"
+
+
+# ============================================================================
+# Authentication Tests
+# ============================================================================
+
+
+class TestAuthRegistration:
+    """Tests for POST /auth/register endpoint."""
+
+    @pytest.fixture
+    def register_url(self):
+        return "/api/v1/auth/register"
+
+    def test_register_creates_user_and_profile(
+        self, db, django_client: Client, register_url
+    ):
+        """Successfully register a new user with profile."""
+        response = django_client.post(
+            register_url,
+            data=json.dumps(
+                {
+                    "username": "newuser",
+                    "email": "newuser@example.com",
+                    "password": "securepass123",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["username"] == "newuser"
+        assert data["email"] == "newuser@example.com"
+        assert "message" in data
+
+        # Verify user created
+        from django.contrib.auth.models import User
+
+        user = User.objects.get(username="newuser")
+        assert user.email == "newuser@example.com"
+
+        # Verify profile created
+        from core.models import UserProfile
+
+        assert UserProfile.objects.filter(user=user).exists()
+
+    def test_register_duplicate_username_fails(
+        self, db, django_client: Client, user: User, register_url
+    ):
+        """Registration fails with duplicate username."""
+        response = django_client.post(
+            register_url,
+            data=json.dumps(
+                {
+                    "username": user.username,
+                    "email": "different@example.com",
+                    "password": "securepass123",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "already exists" in data["detail"]
+
+    def test_register_short_username_fails(
+        self, db, django_client: Client, register_url
+    ):
+        """Registration fails with username < 3 characters."""
+        response = django_client.post(
+            register_url,
+            data=json.dumps(
+                {
+                    "username": "ab",
+                    "email": "test@example.com",
+                    "password": "securepass123",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "3 characters" in data["detail"]
+
+    def test_register_short_password_fails(
+        self, db, django_client: Client, register_url
+    ):
+        """Registration fails with password < 8 characters."""
+        response = django_client.post(
+            register_url,
+            data=json.dumps(
+                {
+                    "username": "validuser",
+                    "email": "test@example.com",
+                    "password": "short",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "8 characters" in data["detail"]
+
+    def test_register_invalid_email_fails(
+        self, db, django_client: Client, register_url
+    ):
+        """Registration fails with invalid email."""
+        response = django_client.post(
+            register_url,
+            data=json.dumps(
+                {
+                    "username": "validuser",
+                    "email": "notanemail",
+                    "password": "securepass123",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert "Invalid email" in data["detail"]
+
+
+class TestAuthLogin:
+    """Tests for POST /token/pair endpoint (JWT login)."""
+
+    @pytest.fixture
+    def token_url(self):
+        return "/api/v1/token/pair"
+
+    def test_login_returns_tokens(self, db, django_client: Client, token_url):
+        """Successfully login and receive access/refresh tokens."""
+        # Create user
+        from django.contrib.auth.models import User
+
+        User.objects.create_user(
+            username="logintest",
+            email="login@example.com",
+            password="testpass123",  # noqa: S106  # pragma: allowlist secret
+        )
+
+        response = django_client.post(
+            token_url,
+            data=json.dumps(
+                {
+                    "username": "logintest",
+                    "password": "testpass123",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "access" in data
+        assert "refresh" in data
+
+    def test_login_invalid_credentials_fails(
+        self, db, django_client: Client, token_url
+    ):
+        """Login fails with invalid credentials."""
+        response = django_client.post(
+            token_url,
+            data=json.dumps(
+                {
+                    "username": "nonexistent",
+                    "password": "wrongpass",  # pragma: allowlist secret
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 401
+
+
+class TestAuthProfile:
+    """Tests for GET/PATCH /auth/me endpoint."""
+
+    @pytest.fixture
+    def profile_url(self):
+        return "/api/v1/auth/me"
+
+    @pytest.fixture
+    def auth_headers(self, db):
+        """Create user and return authorization headers with JWT token."""
+        from django.contrib.auth.models import User
+        from ninja_jwt.tokens import AccessToken
+
+        user = User.objects.create_user(
+            username="authtest",
+            email="auth@example.com",
+            password="testpass123",  # noqa: S106  # pragma: allowlist secret
+        )
+        token = AccessToken.for_user(user)
+        return {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
+    def test_get_profile_requires_auth(self, db, django_client: Client, profile_url):
+        """GET /auth/me requires authentication."""
+        response = django_client.get(profile_url)
+
+        assert response.status_code == 401
+
+    def test_get_profile_returns_user_data(
+        self, db, django_client: Client, profile_url, auth_headers
+    ):
+        """GET /auth/me returns user profile data."""
+        response = django_client.get(profile_url, **auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["username"] == "authtest"
+        assert data["user"]["email"] == "auth@example.com"
+        assert "reports_submitted" in data
+        assert "badges" in data
+        assert "reputation_score" in data
+
+    def test_update_profile_email(
+        self, db, django_client: Client, profile_url, auth_headers
+    ):
+        """PATCH /auth/me updates user email."""
+        response = django_client.patch(
+            profile_url,
+            data=json.dumps({"email": "newemail@example.com"}),
+            content_type="application/json",
+            **auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["email"] == "newemail@example.com"
+
+
+class TestAuthProtectedEndpoints:
+    """Tests for JWT-protected endpoints."""
+
+    @pytest.fixture
+    def operator_headers(self, db, operator_user: User):
+        """Return authorization headers for operator user."""
+        from ninja_jwt.tokens import AccessToken
+
+        token = AccessToken.for_user(operator_user)
+        return {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
+    @pytest.fixture
+    def regular_headers(self, db, user: User):
+        """Return authorization headers for regular (non-staff) user."""
+        from ninja_jwt.tokens import AccessToken
+
+        token = AccessToken.for_user(user)
+        return {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+
+    @pytest.fixture
+    def mock_broadcast(self):
+        """Mock the SSE broadcast to avoid external dependencies."""
+        from unittest.mock import patch
+
+        with patch("api.streaming.broadcast_status_change") as mock_broadcast:
+            yield mock_broadcast
+
+    def test_update_status_requires_auth(self, db, django_client: Client, event: Event):
+        """Status update requires authentication."""
+        response = django_client.patch(
+            f"/api/v1/events/{event.id}/status",
+            data=json.dumps({"status": "verified"}),
+            content_type="application/json",
+        )
+
+        assert response.status_code == 401
+
+    def test_update_status_requires_staff(
+        self, db, django_client: Client, event: Event, regular_headers, mock_broadcast
+    ):
+        """Status update requires staff permission."""
+        response = django_client.patch(
+            f"/api/v1/events/{event.id}/status",
+            data=json.dumps({"status": "verified"}),
+            content_type="application/json",
+            **regular_headers,
+        )
+
+        assert response.status_code == 403
+        data = response.json()
+        assert "operators" in data["detail"].lower()
+
+    def test_update_status_success_with_staff(
+        self, db, django_client: Client, event: Event, operator_headers, mock_broadcast
+    ):
+        """Staff user can update event status."""
+        response = django_client.patch(
+            f"/api/v1/events/{event.id}/status",
+            data=json.dumps({"status": "verified"}),
+            content_type="application/json",
+            **operator_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "verified"
+
+    def test_verify_credits_reporter(
+        self,
+        db,
+        django_client: Client,
+        warsaw_location,
+        user: User,
+        operator_headers,
+        mock_broadcast,
+    ):
+        """Verifying an event credits the reporter's profile."""
+        from core.models import UserProfile
+
+        # Create profile for reporter
+        profile = UserProfile.objects.create(
+            user=user,
+            reports_submitted=1,
+            reports_verified=0,
+            reputation_score=0,
+        )
+
+        # Create event with reporter
+        event = Event.objects.create(
+            location=warsaw_location,
+            description="Test event",
+            reporter=user,
+            status=StatusChoices.NEW,
+        )
+
+        response = django_client.patch(
+            f"/api/v1/events/{event.id}/status",
+            data=json.dumps({"status": "verified"}),
+            content_type="application/json",
+            **operator_headers,
+        )
+
+        assert response.status_code == 200
+
+        profile.refresh_from_db()
+        assert profile.reports_verified == 1
+        assert profile.reputation_score == 10

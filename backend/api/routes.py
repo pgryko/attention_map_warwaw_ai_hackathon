@@ -14,8 +14,10 @@ from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import File, Form, Query, Router
 from ninja.files import UploadedFile
+from ninja_jwt.authentication import JWTAuth
 
-from core.models import Event, EventCluster, StatusChoices
+from core.models import Event, EventCluster, SeverityChoices, StatusChoices, UserProfile
+from services.gamification import GamificationService
 
 from .schemas import (
     ClusterOut,
@@ -47,6 +49,7 @@ def event_to_schema(event: Event) -> EventOut:
         media_url=event.media_url,
         media_type=event.media_type,
         thumbnail_url=event.thumbnail_url,
+        transcription=event.transcription,
         category=event.category,
         subcategory=event.subcategory,
         severity=event.severity,
@@ -112,13 +115,33 @@ def upload_event(
     media_type = "video" if content_type.startswith("video/") else "image"
     location = Point(longitude, latitude, srid=4326)
 
+    # Determine reporter (supports both session and JWT auth)
+    reporter = None
+    if request.user.is_authenticated:
+        reporter = request.user
+    elif hasattr(request, "auth") and request.auth:
+        reporter = request.auth
+
     event = Event.objects.create(
-        reporter=request.user if request.user.is_authenticated else None,
+        reporter=reporter,
         location=location,
         description=description,
         media_type=media_type,
         status=StatusChoices.NEW,
     )
+
+    # Increment reporter's submission count and check for badges
+    if reporter:
+        try:
+            profile, _ = UserProfile.objects.get_or_create(user=reporter)
+            profile.reports_submitted += 1
+            profile.save(update_fields=["reports_submitted"])
+
+            # Check for new badges
+            gamification = GamificationService()
+            gamification.on_report_submitted(profile)
+        except Exception:
+            pass  # Don't fail upload if profile update fails
 
     # Trigger Celery task for async processing
     from tasks.processing import process_event
@@ -225,7 +248,8 @@ def get_event(request: HttpRequest, event_id: UUID) -> tuple[int, EventOut | Err
 
 @router.patch(
     "/events/{event_id}/status",
-    response={200: EventOut, 404: ErrorOut},
+    auth=JWTAuth(),
+    response={200: EventOut, 403: ErrorOut, 404: ErrorOut},
     summary="Update event status (triage)",
 )
 def update_event_status(
@@ -235,14 +259,40 @@ def update_event_status(
 ) -> tuple[int, EventOut | ErrorOut]:
     """
     Update the status of an event (triage action).
-    Only authenticated operators can perform this action.
+    Only authenticated staff/operators can perform this action.
     """
+    # Check if user is staff (operator)
+    if not request.auth.is_staff:
+        return 403, ErrorOut(detail="Only operators can update event status")
+
     event = get_object_or_404(Event, id=event_id)
 
+    # Track status changes for gamification
+    was_verified = data.status == "verified" and event.status != "verified"
+    was_rejected = data.status == "false_alarm" and event.status != "false_alarm"
+    is_critical = event.severity == SeverityChoices.CRITICAL
+
     event.status = data.status
-    event.reviewed_by = request.user if request.user.is_authenticated else None
+    event.reviewed_by = request.auth
     event.reviewed_at = timezone.now()
     event.save()
+
+    # Handle gamification for reporter
+    if event.reporter:
+        try:
+            profile = event.reporter.profile
+            gamification = GamificationService()
+
+            if was_verified:
+                profile.reports_verified += 1
+                profile.save(update_fields=["reports_verified"])
+                gamification.on_report_verified(profile, is_critical=is_critical)
+
+            elif was_rejected:
+                gamification.on_report_rejected(profile)
+
+        except UserProfile.DoesNotExist:
+            pass
 
     # Trigger SSE notification for status change
     from api.streaming import broadcast_status_change

@@ -3,6 +3,7 @@ Django settings for attention_map project.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -32,6 +33,8 @@ INSTALLED_APPS = [
     # Third-party
     "corsheaders",
     "ninja",
+    "ninja_jwt",
+    "ninja_extra",
     # Local apps
     "core",
     "api",
@@ -141,8 +144,28 @@ OPENROUTER_MODEL = os.getenv(
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Groq Configuration (optional, for Whisper transcription)
+# Groq Configuration (for Whisper transcription)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
+
+# FFmpeg Configuration (for video keyframe extraction)
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
+FFPROBE_PATH = os.getenv("FFPROBE_PATH", "ffprobe")
+THUMBNAIL_WIDTH = int(os.getenv("THUMBNAIL_WIDTH", "640"))
+THUMBNAIL_QUALITY = int(os.getenv("THUMBNAIL_QUALITY", "85"))
+
+# JWT Configuration
+NINJA_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
 
 # File Upload Limits
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
