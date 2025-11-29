@@ -1,64 +1,122 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import UploadForm from "../components/Upload/UploadForm";
 import { uploadEvent } from "../api/client";
+import { Card, CardContent } from "../components/ui/Card";
+import { QUERY_KEYS } from "../lib/constants";
 
 export default function UploadPage() {
   const navigate = useNavigate();
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (formData) => {
-    try {
-      setUploading(true);
-      setError(null);
-      await uploadEvent(formData);
+  const mutation = useMutation({
+    mutationFn: uploadEvent,
+    onSuccess: (data) => {
+      // Invalidate events query to refresh the list
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.events] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.stats] });
       setSuccess(true);
-      setTimeout(() => navigate("/"), 2000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
-    }
+      // Navigate to event detail or dashboard after delay
+      setTimeout(() => {
+        if (data?.id) {
+          navigate(`/event/${data.id}`);
+        } else {
+          navigate("/");
+        }
+      }, 2000);
+    },
+  });
+
+  const handleSubmit = (formData) => {
+    mutation.mutate(formData);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <Link to="/" className="text-gray-600 hover:text-gray-900">
-            &larr; Back to Dashboard
-          </Link>
-          <h1 className="text-xl font-bold text-gray-900">Report Event</h1>
-          <div className="w-20"></div>
-        </div>
-      </header>
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      {/* Back link */}
+      <Link
+        to="/"
+        className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+      >
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        Back to Dashboard
+      </Link>
 
-      {/* Content */}
-      <main className="max-w-2xl mx-auto py-8 px-4">
-        {success ? (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-            <div className="text-green-600 text-4xl mb-4">checkmark</div>
-            <h2 className="text-lg font-semibold text-green-800">
-              Event Reported Successfully
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
+        Report an Incident
+      </h1>
+
+      {success ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+              <svg
+                className="h-8 w-8 text-emerald-600 dark:text-emerald-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Report Submitted!
             </h2>
-            <p className="text-green-600 mt-2">
-              Your report is being processed. Redirecting to dashboard...
+            <p className="mt-2 text-gray-500 dark:text-gray-400">
+              Your report is being processed. Redirecting...
             </p>
-          </div>
-        ) : (
-          <>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-red-600">{error}</p>
-              </div>
-            )}
-            <UploadForm onSubmit={handleSubmit} loading={uploading} />
-          </>
-        )}
-      </main>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {mutation.isError && (
+            <Card className="mb-6 border-red-200 dark:border-red-800">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                  <svg
+                    className="h-5 w-5 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>
+                    {mutation.error?.message ||
+                      "Upload failed. Please try again."}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <UploadForm onSubmit={handleSubmit} loading={mutation.isPending} />
+        </>
+      )}
     </div>
   );
 }

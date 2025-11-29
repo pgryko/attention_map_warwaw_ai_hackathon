@@ -1,29 +1,33 @@
+import {
+  EVENT_CATEGORIES,
+  EVENT_STATUSES,
+  SEVERITY_LEVELS,
+} from "../../lib/constants";
+
 const CATEGORIES = [
   { value: "", label: "All Categories" },
-  { value: "emergency", label: "Emergency" },
-  { value: "security", label: "Security" },
-  { value: "traffic", label: "Traffic" },
-  { value: "protest", label: "Protest" },
-  { value: "infrastructure", label: "Infrastructure" },
-  { value: "environmental", label: "Environmental" },
-  { value: "informational", label: "Informational" },
+  ...Object.entries(EVENT_CATEGORIES).map(([value, config]) => ({
+    value,
+    label: `${config.icon} ${config.label}`,
+  })),
 ];
 
 const STATUSES = [
   { value: "", label: "All Statuses" },
-  { value: "new", label: "New" },
-  { value: "reviewing", label: "Reviewing" },
-  { value: "verified", label: "Verified" },
-  { value: "resolved", label: "Resolved" },
-  { value: "false_alarm", label: "False Alarm" },
+  ...Object.entries(EVENT_STATUSES).map(([value, config]) => ({
+    value,
+    label: config.label,
+  })),
 ];
 
 const SEVERITIES = [
   { value: "", label: "All Severities" },
-  { value: "4", label: "Critical (4)" },
-  { value: "3", label: "High (3)" },
-  { value: "2", label: "Medium (2)" },
-  { value: "1", label: "Low (1)" },
+  ...Object.entries(SEVERITY_LEVELS)
+    .reverse()
+    .map(([value, config]) => ({
+      value,
+      label: `${config.label} (${value})`,
+    })),
 ];
 
 export default function FilterBar({ filters, onFilterChange }) {
@@ -31,12 +35,16 @@ export default function FilterBar({ filters, onFilterChange }) {
     onFilterChange({ ...filters, [key]: value });
   };
 
+  const hasFilters = filters.category || filters.status || filters.severity;
+
   return (
-    <div className="bg-white border-b px-4 py-2 flex gap-4 items-center">
-      <span className="text-sm font-medium text-gray-600">Filters:</span>
+    <div className="flex flex-wrap items-center gap-3 border-b bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        Filters:
+      </span>
 
       <select
-        className="border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
         value={filters.category || ""}
         onChange={(e) => handleChange("category", e.target.value)}
       >
@@ -48,7 +56,7 @@ export default function FilterBar({ filters, onFilterChange }) {
       </select>
 
       <select
-        className="border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
         value={filters.status || ""}
         onChange={(e) => handleChange("status", e.target.value)}
       >
@@ -60,7 +68,7 @@ export default function FilterBar({ filters, onFilterChange }) {
       </select>
 
       <select
-        className="border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
         value={filters.severity || ""}
         onChange={(e) => handleChange("severity", e.target.value)}
       >
@@ -71,9 +79,9 @@ export default function FilterBar({ filters, onFilterChange }) {
         ))}
       </select>
 
-      {(filters.category || filters.status || filters.severity) && (
+      {hasFilters && (
         <button
-          className="text-sm text-blue-600 hover:text-blue-800"
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           onClick={() => onFilterChange({})}
         >
           Clear Filters

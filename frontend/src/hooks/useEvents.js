@@ -1,62 +1,47 @@
-import { useState, useEffect, useCallback } from "react";
-import { listEvents, createEventStream } from "../api/client";
+import { useQuery } from "@tanstack/react-query";
+import { listEvents, getEvent, listClusters, getStats } from "../api/client";
+import { QUERY_KEYS } from "../lib/constants";
 
 /**
- * Hook for managing events state with real-time updates.
+ * Hook to fetch events list with filters.
  */
-export function useEvents(initialFilters = {}) {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filters, setFilters] = useState(initialFilters);
+export function useEvents(filters = {}) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.events, filters],
+    queryFn: () => listEvents(filters),
+    staleTime: 30000, // 30 seconds
+  });
+}
 
-  // Fetch events
-  const fetchEvents = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await listEvents(filters);
-      setEvents(data.events);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
+/**
+ * Hook to fetch a single event.
+ */
+export function useEvent(eventId) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.event, eventId],
+    queryFn: () => getEvent(eventId),
+    enabled: !!eventId,
+  });
+}
 
-  // Initial fetch
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+/**
+ * Hook to fetch clusters for the map.
+ */
+export function useClusters(bounds) {
+  return useQuery({
+    queryKey: [QUERY_KEYS.clusters, bounds],
+    queryFn: () => listClusters(bounds),
+    staleTime: 30000,
+  });
+}
 
-  // Real-time updates via SSE
-  useEffect(() => {
-    const eventSource = createEventStream(
-      (data) => {
-        if (data.type === "new_event") {
-          setEvents((prev) => [data.event, ...prev]);
-        } else if (data.type === "status_change") {
-          setEvents((prev) =>
-            prev.map((e) => (e.id === data.event.id ? data.event : e)),
-          );
-        }
-      },
-      (err) => {
-        console.error("SSE error:", err);
-      },
-    );
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
-
-  return {
-    events,
-    loading,
-    error,
-    filters,
-    setFilters,
-    refetch: fetchEvents,
-  };
+/**
+ * Hook to fetch dashboard statistics.
+ */
+export function useStats() {
+  return useQuery({
+    queryKey: [QUERY_KEYS.stats],
+    queryFn: getStats,
+    staleTime: 60000, // 1 minute
+  });
 }

@@ -42,10 +42,24 @@ Civic event monitoring platform - citizens upload incident reports (fires, accid
 
 ### Celery Pipeline
 1. Store media → MinIO
-2. Extract keyframe → ffmpeg
-3. Classify → OpenAI API
-4. Cluster → PostGIS ST_DWithin
-5. Broadcast → Redis pub/sub → SSE
+2. Extract keyframe → FFmpeg
+3. Transcribe audio → Groq Whisper
+4. Classify → OpenRouter API (text + vision)
+5. Cluster → PostGIS ST_DWithin
+6. Broadcast → Redis pub/sub → SSE
+
+### Implementation Status (205 tests passing)
+- ✅ Phase 1: JWT Authentication
+- ✅ Phase 2: Video Keyframe Extraction (FFmpeg)
+- ✅ Phase 3: Audio Transcription (Groq Whisper)
+- ✅ Phase 4: Gamification (badges, reputation, leaderboard)
+- ⏳ Frontend: Spec complete (FRONTEND_SPEC.md), implementation pending
+
+### Frontend Spec Summary
+- **Tech**: TanStack Query + Tailwind CSS
+- **Theme**: Light/dark toggle
+- **Priority Features**: SSE real-time, media upload, triage workflow
+- **Phases**: 6 phases, ~44 components total
 
 ### User's Background
 - Familiar with: Python, Django, Django Ninja

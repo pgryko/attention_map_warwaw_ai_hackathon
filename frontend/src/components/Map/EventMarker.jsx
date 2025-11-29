@@ -9,17 +9,6 @@ const SEVERITY_COLORS = {
   4: "#ef4444", // red
 };
 
-// Category icons (emoji for simplicity)
-const CATEGORY_ICONS = {
-  emergency: "fire",
-  security: "shield",
-  traffic: "car",
-  protest: "users",
-  infrastructure: "tool",
-  environmental: "tree",
-  informational: "info",
-};
-
 /**
  * Create a custom divIcon for the marker.
  */
