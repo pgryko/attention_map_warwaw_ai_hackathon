@@ -114,15 +114,46 @@ def extract_keyframe(video_url: str) -> str:
 
 
 @shared_task
+def transcribe_audio(audio_data: bytes, filename: str = "audio.mp3") -> str:
+    """
+    Transcribe audio using Groq's Whisper API (extremely fast).
+    Falls back to empty string if not configured.
+    """
+    if not settings.GROQ_API_KEY:
+        logger.warning("Groq API key not configured, skipping transcription")
+        return ""
+
+    from groq import Groq
+
+    client = Groq(api_key=settings.GROQ_API_KEY)
+
+    try:
+        import io
+
+        audio_file = io.BytesIO(audio_data)
+        audio_file.name = filename
+
+        transcription = client.audio.transcriptions.create(
+            file=audio_file,
+            model="whisper-large-v3-turbo",
+            response_format="text",
+        )
+        return transcription
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        return ""
+
+
+@shared_task
 def classify_event(event) -> dict:
     """
-    Classify event using OpenAI API.
-    Combines text description and image analysis.
+    Classify event using OpenRouter API.
+    Supports any model via OpenRouter (Claude, GPT, Gemini, Mistral, etc.)
     """
     from openai import OpenAI
 
-    if not settings.OPENAI_API_KEY:
-        logger.warning("OpenAI API key not configured, skipping classification")
+    if not settings.OPENROUTER_API_KEY:
+        logger.warning("OpenRouter API key not configured, skipping classification")
         return {
             "category": "informational",
             "subcategory": "",
@@ -131,7 +162,11 @@ def classify_event(event) -> dict:
             "reasoning": "Classification skipped - API key not configured",
         }
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    # OpenRouter uses OpenAI-compatible API
+    client = OpenAI(
+        api_key=settings.OPENROUTER_API_KEY,
+        base_url=settings.OPENROUTER_BASE_URL,
+    )
 
     prompt = f"""Analyze this incident report and classify it.
 
@@ -152,20 +187,31 @@ Also assign severity (1-4):
 - 3 (High): Urgent, requires response
 - 4 (Critical): Life-threatening emergency
 
-Respond in JSON format:
+Respond in JSON format only:
 {{"category": "...", "subcategory": "...", "severity": N, "confidence": 0.0-1.0, "reasoning": "..."}}
 """
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.OPENROUTER_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            extra_headers={
+                "HTTP-Referer": "https://attention-map.app",
+                "X-Title": "Attention Map",
+            },
         )
 
         import json
 
-        result = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        # Handle markdown code blocks if present
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        content = content.strip()
+
+        result = json.loads(content)
         return result
     except Exception as e:
         logger.error(f"Classification failed: {e}")
