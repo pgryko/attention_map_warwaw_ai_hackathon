@@ -6,6 +6,16 @@ repos:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
 
+  # Check for root-owned files (prevents accidental sudo usage)
+  - repo: local
+    hooks:
+      - id: no-root-files
+        name: Check for root-owned files
+        entry: ./scripts/check-root-files.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+
   # General checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0

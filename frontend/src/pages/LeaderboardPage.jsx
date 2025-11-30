@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaderboard } from "../api/auth";
 import {
@@ -8,15 +9,26 @@ import {
 } from "../components/ui/Card";
 import { Spinner } from "../components/ui/Spinner";
 import { QUERY_KEYS } from "../lib/constants";
+import { cn } from "../lib/utils";
+
+const TIME_PERIODS = [
+  { id: "all", label: "All Time", days: null },
+  { id: "month", label: "This Month", days: 30 },
+  { id: "week", label: "This Week", days: 7 },
+];
 
 export default function LeaderboardPage() {
+  const [timePeriod, setTimePeriod] = useState("all");
+
+  const selectedPeriod = TIME_PERIODS.find((p) => p.id === timePeriod);
+
   const {
     data: leaderboard,
     isLoading,
     error,
   } = useQuery({
-    queryKey: [QUERY_KEYS.leaderboard],
-    queryFn: () => getLeaderboard(20),
+    queryKey: [QUERY_KEYS.leaderboard, timePeriod],
+    queryFn: () => getLeaderboard(20, selectedPeriod?.days),
   });
 
   return (
@@ -27,7 +39,26 @@ export default function LeaderboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Top Reporters</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Top Reporters</CardTitle>
+            {/* Time period tabs */}
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+              {TIME_PERIODS.map((period) => (
+                <button
+                  key={period.id}
+                  onClick={() => setTimePeriod(period.id)}
+                  className={cn(
+                    "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                    timePeriod === period.id
+                      ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400"
+                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+                  )}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (

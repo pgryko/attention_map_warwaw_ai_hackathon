@@ -49,6 +49,15 @@ export const SEVERITY_LEVELS = {
   4: { label: "Critical", color: "#ef4444" },
 };
 
+// Time Filters
+export const TIME_FILTERS = {
+  "": { label: "All Time", hours: null },
+  "1h": { label: "Last Hour", hours: 1 },
+  "24h": { label: "Last 24 Hours", hours: 24 },
+  "7d": { label: "Last 7 Days", hours: 168 },
+  "30d": { label: "Last 30 Days", hours: 720 },
+};
+
 // Map Configuration
 export const MAP_CONFIG = {
   defaultCenter: [52.2297, 21.0122], // Warsaw

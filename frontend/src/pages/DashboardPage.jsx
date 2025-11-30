@@ -6,6 +6,7 @@ import FilterBar from "../components/Dashboard/FilterBar";
 import StatsWidgets from "../components/Dashboard/StatsWidgets";
 import { useEvents, useStats } from "../hooks/useEvents";
 import { useSSE } from "../hooks/useSSE";
+import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/Button";
 import { EventFeedSkeleton, StatsBarSkeleton } from "../components/ui/Skeleton";
 import { cn } from "../lib/utils";
@@ -14,9 +15,11 @@ export default function DashboardPage() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [filters, setFilters] = useState({});
   const [mobileView, setMobileView] = useState("map"); // 'map' or 'feed'
+  const { isAuthenticated } = useAuth();
 
-  // Enable SSE for real-time updates
-  useSSE({ enabled: true });
+  // Enable SSE for real-time updates only for authenticated users
+  // (unauthenticated users will see data via polling/manual refresh)
+  useSSE({ enabled: isAuthenticated });
 
   // Fetch data with TanStack Query
   const {

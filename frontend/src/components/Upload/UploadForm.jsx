@@ -1,17 +1,31 @@
 import { useState, useRef } from "react";
 import { useGeolocation } from "../../hooks/useGeolocation";
 import { Button } from "../ui/Button";
-import { Textarea, Select } from "../ui/Input";
+import { Textarea, Select, Input } from "../ui/Input";
 import { Card, CardContent } from "../ui/Card";
 import { EVENT_CATEGORIES } from "../../lib/constants";
 import { cn } from "../../lib/utils";
+import LocationPicker from "../Map/LocationPicker";
 
 export default function UploadForm({ onSubmit, loading }) {
   const fileInputRef = useRef(null);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
-  const { location, error: geoError, loading: geoLoading } = useGeolocation();
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
+  const [manualError, setManualError] = useState("");
+
+  const {
+    location,
+    error: geoError,
+    loading: geoLoading,
+    isManual,
+    setManualLocation,
+    useDefaultLocation,
+    retryGeolocation,
+  } = useGeolocation();
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -36,6 +50,32 @@ export default function UploadForm({ onSubmit, loading }) {
     });
   };
 
+  const handleManualLocationSubmit = () => {
+    setManualError("");
+    const lat = parseFloat(manualLat);
+    const lng = parseFloat(manualLng);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      setManualError("Please enter valid numbers for latitude and longitude");
+      return;
+    }
+
+    if (lat < -90 || lat > 90) {
+      setManualError("Latitude must be between -90 and 90");
+      return;
+    }
+
+    if (lng < -180 || lng > 180) {
+      setManualError("Longitude must be between -180 and 180");
+      return;
+    }
+
+    const success = setManualLocation(lat, lng);
+    if (success) {
+      setShowManualInput(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -45,7 +85,7 @@ export default function UploadForm({ onSubmit, loading }) {
     }
 
     if (!location) {
-      alert("Location is required. Please enable location services.");
+      alert("Location is required. Please set your location.");
       return;
     }
 
@@ -244,49 +284,152 @@ export default function UploadForm({ onSubmit, loading }) {
                 Getting your location...
               </div>
             )}
-            {geoError && (
-              <div className="flex items-center gap-2 text-red-500">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                {geoError}. Please enable location services.
+
+            {/* Error state with fallback options */}
+            {geoError && !location && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <span className="text-sm">{geoError}</span>
+                </div>
+
+                {/* Fallback options */}
+                {!showManualInput ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={useDefaultLocation}
+                    >
+                      Use Warsaw Center
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowManualInput(true)}
+                    >
+                      Enter Manually
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={retryGeolocation}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Latitude"
+                        type="number"
+                        step="any"
+                        placeholder="52.2297"
+                        value={manualLat}
+                        onChange={(e) => setManualLat(e.target.value)}
+                      />
+                      <Input
+                        label="Longitude"
+                        type="number"
+                        step="any"
+                        placeholder="21.0122"
+                        value={manualLng}
+                        onChange={(e) => setManualLng(e.target.value)}
+                      />
+                    </div>
+                    {manualError && (
+                      <p className="text-sm text-red-500">{manualError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleManualLocationSubmit}
+                      >
+                        Set Location
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowManualInput(false);
+                          setManualError("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Success state */}
             {location && (
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span>
+                    {location.latitude.toFixed(6)},{" "}
+                    {location.longitude.toFixed(6)}
+                  </span>
+                  {isManual && (
+                    <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                      Manual
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {isManual && (
+                    <button
+                      type="button"
+                      onClick={retryGeolocation}
+                      className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      Try automatic location again
+                    </button>
+                  )}
+                  {/* Map picker to adjust location */}
+                  <LocationPicker
+                    location={location}
+                    onLocationSelect={(loc) => setManualLocation(loc.latitude, loc.longitude)}
                   />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-                <span>
-                  {location.latitude.toFixed(6)},{" "}
-                  {location.longitude.toFixed(6)}
-                </span>
+                </div>
               </div>
             )}
           </div>

@@ -60,9 +60,15 @@ export async function getUserStats() {
 
 /**
  * Get leaderboard.
+ * @param {number} limit - Maximum number of users to return
+ * @param {number|null} days - Filter by activity in last N days (null for all time)
  */
-export async function getLeaderboard(limit = 10) {
-  return fetchApi(`/auth/leaderboard?limit=${limit}`);
+export async function getLeaderboard(limit = 10, days = null) {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  if (days) {
+    params.append("days", days.toString());
+  }
+  return fetchApi(`/auth/leaderboard?${params.toString()}`);
 }
 
 /**

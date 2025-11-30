@@ -60,6 +60,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"  # Run as host user to avoid root-owned files
     command: >
       sh -c "uv run python manage.py migrate &&
              uv run python manage.py runserver 0.0.0.0:8000"
@@ -91,6 +92,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"  # Run as host user to avoid root-owned files
     command: uv run celery -A attention_map worker -l info --concurrency=2
     volumes:
       - ./backend:/app
@@ -118,6 +120,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"  # Run as host user to avoid root-owned files
     ports:
       - "3000:3000"
     volumes:
